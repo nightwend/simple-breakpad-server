@@ -22,7 +22,7 @@ crashreportToApiJson = (crashreport) ->
 
   for k,v of json
     if Buffer.isBuffer(json[k])
-      json[k] = "/crashreports/#{json.id}/files/#{k}"
+      json[k] = config.get('baseUrl') + "crashreports/#{json.id}/files/#{k}"
 
   json
 
@@ -38,7 +38,7 @@ crashreportToViewJson = (report) ->
       # pass
     else if config.get("customFields:filesById:#{k}")
       # a file
-      fields.props[k] = { path: "/crashreports/#{report.id}/files/#{k}" }
+      fields.props[k] = { path: config.get('baseUrl') + "crashreports/#{report.id}/files/#{k}" }
     else if Buffer.isBuffer(json[k])
       # shouldn't happen, should hit line above
     else if k == 'created_at'
@@ -101,6 +101,8 @@ db.sync()
 run = ->
   app = express()
   breakpad = express()
+  baseUrl = config.get('baseUrl')
+  port = config.get('port')
 
   hbs = exphbs.create
     defaultLayout: 'main'
@@ -108,11 +110,11 @@ run = ->
     layoutsDir: path.resolve(__dirname, '..', 'views', 'layouts')
     helpers:
       paginate: hbsPaginate
-      reportUrl: (id) -> "/crashreports/#{id}"
-      symfileUrl: (id) -> "/symfiles/#{id}"
+      reportUrl: (id) -> baseUrl + "crashreports/#{id}"
+      symfileUrl: (id) -> baseUrl + "symfiles/#{id}"
       titleCase: titleCase
 
-  breakpad.use(require('express-decompress').create());
+  breakpad.use(require('express-decompress').create())
   breakpad.set 'json spaces', 2
   breakpad.set 'views', path.resolve(__dirname, '..', 'views')
   breakpad.engine('handlebars', hbs.engine)
@@ -121,8 +123,6 @@ run = ->
   breakpad.use bodyParser.urlencoded({extended: true})
   breakpad.use methodOverride()
 
-  baseUrl = config.get('baseUrl')
-  port = config.get('port')
 
   app.use baseUrl, breakpad
 
@@ -195,7 +195,7 @@ run = ->
     req.pipe(req.busboy)
 
   breakpad.get '/', (req, res, next) ->
-    res.redirect '/crashreports'
+    res.redirect baseUrl + 'crashreports'
 
   breakpad.use paginate.middleware(10, 50)
   breakpad.get '/crashreports', (req, res, next) ->
@@ -231,6 +231,7 @@ run = ->
 
       res.render 'crashreport-index',
         title: 'Crash Reports'
+        baseUrl: baseUrl
         crashreportsActive: yes
         records: viewReports
         fields: fields
@@ -264,6 +265,7 @@ run = ->
 
       res.render 'symfile-index',
         title: 'Symfiles'
+        baseUrl: baseUrl
         symfilesActive: yes
         records: viewSymfiles
         fields: fields
@@ -289,6 +291,7 @@ run = ->
         Symfile.getContents(symfile).then (contents) ->
           res.render 'symfile-view', {
             title: 'Symfile'
+            baseUrl: baseUrl
             symfile: symfileToViewJson(symfile, contents)
           }
 
@@ -302,6 +305,7 @@ run = ->
 
         res.render 'crashreport-view', {
           title: 'Crash Report'
+          baseUrl: baseUrl
           stackwalk: stackwalk
           product: fields.product
           version: fields.version
