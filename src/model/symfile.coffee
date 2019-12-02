@@ -5,6 +5,8 @@ sequelize = require './db'
 fs = require 'fs-promise'
 path = require 'path'
 streamToArray = require 'stream-to-array'
+minidump = require 'minidump'
+tmp = require 'tmp'
 
 symbolsPath = config.getSymbolsPath()
 COMPOSITE_INDEX = 'compositeIndex'
@@ -89,16 +91,27 @@ Symfile.createFromRequest = (req, res, callback) ->
   streamOps = []
 
   req.busboy.on 'file', (fieldname, file, filename, encoding, mimetype) ->
-    streamOps.push streamToArray(file).then((parts) ->
-      buffers = []
-      for i in [0 .. parts.length - 1]
-        part = parts[i]
-        buffers.push if part instanceof Buffer then part else new Buffer(part)
+    # Stream pdb to disk, convert to syms
+    if fieldname == 'symfile' && filename.endsWith(".pdb")
+      tmpfile = tmp.fileSync()
+      file.pipe(fs.createWriteStream(tmpfile.name)).on 'finish', ->
+        streamOps.push new Promise((resolve, reject) ->
+          minidump.dumpSymbol tmpfile.name,  (err, report) ->
+            tmpfile.removeCallback()
+            props[fieldname] = report.toString()
+            resolve err, report
+        )
+    else
+      streamOps.push streamToArray(file).then((parts) ->
+        buffers = []
+        for i in [0 .. parts.length - 1]
+          part = parts[i]
+          buffers.push if part instanceof Buffer then part else new Buffer(part)
 
-      return Buffer.concat(buffers)
-    ).then (buffer) ->
-      if fieldname == 'symfile'
-        props[fieldname] = buffer.toString()
+        return Buffer.concat(buffers)
+      ).then (buffer) ->
+        if fieldname == 'symfile'
+          props[fieldname] = buffer.toString()
 
   req.busboy.on 'finish', ->
     Promise.all(streamOps).then ->
@@ -107,7 +120,7 @@ Symfile.createFromRequest = (req, res, callback) ->
         throw new Error 'Form must include a "symfile" field'
 
       contents = props.symfile
-      header = contents.split('\n')[0].match(/^(MODULE) ([^ ]+) ([^ ]+) ([0-9A-F]+) (.*)/)
+      header = contents.split('\n')[0].match(/^(MODULE) ([^ ]+) ([^ ]+) ([0-9A-Fa-f]+) (.*)/)
 
       [line, dec, os, arch, code, name] = header
 

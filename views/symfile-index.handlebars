@@ -29,3 +29,8 @@
   <p>No symfiles</p>
 {{/if}}
 
+<form accept="{{baseUrl}}symfiles" method="POST" enctype="multipart/form-data">
+    Select pdb or syms to upload:
+    <input type="file" name="symfile" id="symfile" accept=".pdb,.syms" required="required"/>
+    <input type="submit" value="Upload syms" name="submit"/>
+</form>

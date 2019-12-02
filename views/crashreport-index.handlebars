@@ -32,4 +32,10 @@
 {{else}}
   <p>No crash reports</p>
 {{/if}}
-
+<form accept="{{baseUrl}}crashreports" method="POST" enctype="multipart/form-data">
+    Select crash dump to upload:
+    <input type="file" name="upload_file_minidump" id="upload_file_minidump" accept=".dmp" required="required"/>
+    <input type="text" name="prod" id="prod" value="BedrockDriver"/>
+    <input type="test" name="ver" id="ver" value="3.3.31"/>
+    <input type="submit" value="Upload Crash Dump" name="submit"/>
+</form>
